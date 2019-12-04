@@ -13,6 +13,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.lilei.slideSelectComponent.vo.Item
 import com.lilei.slideSelectComponent.widget.SlideSelectedRecyclerView
 
+/**
+ * 展示页面
+ * @author lilei
+ * @since 2019-12-2
+ * @version 1.0
+ */
 class MainActivity : AppCompatActivity(), SlideSelectedRecyclerView.OnSlideSelectedChangedListener {
     /**数据*/
     private var mData: MutableList<Item>? = null
