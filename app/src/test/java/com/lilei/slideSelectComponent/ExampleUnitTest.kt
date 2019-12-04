@@ -1,4 +1,4 @@
-package com.lilei.slideselectcomponent
+package com.lilei.slideSelectComponent
 
 import org.junit.Test
 

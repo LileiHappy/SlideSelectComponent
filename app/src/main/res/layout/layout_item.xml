@@ -6,7 +6,7 @@
         android:layout_width="match_parent"
         android:layout_height="160dp"
         android:id="@+id/image"
-        android:src="@android:color/holo_red_dark"/>
+        android:src="@android:color/holo_green_dark"/>
     <ImageView
         android:layout_width="25dp"
         android:layout_height="25dp"

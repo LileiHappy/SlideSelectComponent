@@ -1,9 +1,9 @@
-package com.shuwen.cloudVideoMeeting
+package com.lilei.slideSelectComponent.type
 
 /**
  * 滚动方向类型枚举
- * @author libai67
- * @email 1542978431@qq.com（有问题可以发邮件到我的邮箱）
+ * @author libai
+ * @email 1542978431@qq.com（有问题或者交流可以发邮件到我的邮箱）
  * @since 2019-12-2
  * @version 1.0
  */
