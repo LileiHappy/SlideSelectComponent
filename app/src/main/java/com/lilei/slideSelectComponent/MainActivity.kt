@@ -80,25 +80,20 @@ class MainActivity : AppCompatActivity(), SlideSelectedRecyclerView.OnSlideSelec
     }
 
     override fun onSlideSelectedChanged(position: Int, columnCount: Int) {
-        if (position > -1 && position < mData!!.size) {
-            // 按下位置索引大于当前位置索引
-            if (mDownPosition > position) {
-                // 为了包含按下点，则结束索引为按下位置索引加1
-                val endPosition = mDownPosition + 1
-                // 依次更新每个
-                for (index in position..endPosition) {
-                    updateSelected(index)
-                }
-                // 刷新更新的视图
-                mAdapter!!.notifyItemRangeChanged(position, mDownPosition - position + 1)
-            } else { // 按下位置索引小于等于当前位置索引
-                val endPosition = position + 1
-                val startPosition = mDownPosition
-                for (index in startPosition..endPosition) {
-                    updateSelected(index)
-                }
-                mAdapter!!.notifyItemRangeChanged(startPosition, position - startPosition + 1)
+        // 越界校验
+        if (!isOutRange(position)) {
+            // 按下位置索引大于当前位置索引，往前滑标志
+            val isForward = mDownPosition > position
+            // 起始索引
+            val startIndex = if (isForward) position else mDownPosition
+            // 结束索引，为了包含按下点或当前点，则结束索引需要加1
+            val endIndex = (if (isForward) mDownPosition else position) + 1
+            // 依次更新每个
+            for (index in startIndex..endIndex) {
+                updateSelected(index)
             }
+            // 刷新更新的视图
+            mAdapter!!.notifyItemRangeChanged(startIndex, Math.abs(mDownPosition - position) + 1)
         }
     }
 
