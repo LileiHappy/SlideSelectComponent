@@ -14,6 +14,7 @@ import com.lilei.slideSelectComponent.type.TouchPositionTyper
 /**
  * 滑动选择列表视图控件
  * @author lilei
+ * @email 1542978431@qq.com（有问题或者交流可以发邮件到我的邮箱）
  * @since 2019-12-2
  * @version 1.0
  */
