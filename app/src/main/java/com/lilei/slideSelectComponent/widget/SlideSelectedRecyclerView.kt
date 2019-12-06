@@ -18,7 +18,8 @@ import com.lilei.slideSelectComponent.type.TouchPositionTyper
  * @since 2019-12-2
  * @version 1.0
  */
-class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSet?, defStyle: Int): RecyclerView(context, attrs, defStyle) {
+class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSet?, defStyle: Int): RecyclerView(context, attrs, defStyle),
+    RecyclerView.OnChildAttachStateChangeListener {
     /**按下位置位置*/
     private val NO_POINT = 0f
     /**位置坐标未知*/
@@ -63,13 +64,21 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
     /**child view高度的四分之一*/
     private var mChildViewQuarterHeight = NO_SIZE
 
+    /**测量过控件宽高信息标志*/
+    private var isMeasured = false
+
     /**认为滑动的水平阈值*/
     private var mSlideDistanceThresholdHorizontal = SLIDE_DISTANCE_THRESHOLD
     /**认为滑动的垂直阈值*/
     private var mSlideDistanceThresholdVertical = SLIDE_DISTANCE_THRESHOLD
+    /**认为滑动的阈值：这里不区分究竟是水平还是垂直*/
+    private var mSlideDistanceThreshold = SLIDE_DISTANCE_THRESHOLD
+    /**垂直滑动标志，垂直滑动则交给列表进行事件分发处理：即处理为滚动列表*/
+    private var isVerticalSlide = true
 
     /**列数：一行有多少个child view*/
     private var mColumnCount = EMPTY
+    /**按下的child view的位置索引*/
     private var mDownPosition = DEFAULT_POSITION
     /**当前触摸的child view的位置索引*/
     private var mCurrentPosition = DEFAULT_POSITION
@@ -107,6 +116,30 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
     }
 
     /**
+     * 设置拦截手势对应的水平滑动间距阈值
+     * @param slideDistanceThresholdHorizontal 水平滑动间距阈值
+     */
+    public fun setSlideDistanceThresholdHorizontal(slideDistanceThresholdHorizontal: Int) {
+        mSlideDistanceThresholdHorizontal = slideDistanceThresholdHorizontal
+    }
+
+    /**
+     * 设置拦截手势对应的垂直滑动间距阈值
+     * @param slideDistanceThresholdVertical 垂直滑动间距阈值
+     */
+    public fun setSlideDistanceThresholdVertical(slideDistanceThresholdVertical: Int) {
+        mSlideDistanceThresholdVertical = slideDistanceThresholdVertical
+    }
+
+    /**
+     * 设置拦截手势的滑动间距阈值
+     * @param slideDistanceThreshold 滑动间距阈值，这里不区分究竟是水平还是垂直
+     */
+    public fun setSlideDistanceThreshold(slideDistanceThreshold: Int) {
+        mSlideDistanceThreshold = slideDistanceThreshold
+    }
+
+    /**
      * 设置滑动变化监听
      * @param listener 监听对象
      */
@@ -114,22 +147,52 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
         mSlideSelectedChangedListener = listener
     }
 
-    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
-        super.onWindowFocusChanged(hasWindowFocus)
-        if (hasWindowFocus) {
+    /**
+     * 依附到窗口后添加child view依附到窗口的监听，主要是为了准确测量，
+     * 在onWindowFocus回调中只能准确获取到recyclerView的宽高，
+     * child view因为还没有依附到窗口，所以无法准确测量尺寸，所以添加child view依附窗口监听
+     *
+     */
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // 没有测量过视图控件的宽高，则测量
+        if (!isMeasured) {
+            // 记录为测量过
+            isMeasured = true
             // 获取recyclerview的尺寸
             getRecyclerViewSize()
             // 获取recyclerview的坐标
             getLocation()
-            // 获取child view高度的半值
-            getChildViewHalfHeight()
             // 获取列数
             getColumnCount()
             // 获取适配child view高度后的自动滚动值，如果使用方设置了则使用设置的值
             getMatchChildViewHeightScrollDistance()
             // 获取适配child view的滑动阈值
             getMatchChildViewSlideDistanceThreshold()
+            // 添加child viwe依附窗口监听：child view获取到windowToken则可以获取尺寸信息
+            addOnChildAttachStateChangeListener(this)
         }
+    }
+
+    /**
+     * child view依附到窗口：child view获取到windowToken
+     */
+    override fun onChildViewAttachedToWindow(view: View) {
+        getChildViewHalfSize(view)
+    }
+
+    /**
+     * child view解除依附
+     */
+    override fun onChildViewDetachedFromWindow(view: View) {
+    }
+
+    /**
+     * 接触依附
+     */
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        removeOnChildAttachStateChangeListener(this)
     }
 
     /**
@@ -156,16 +219,15 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
     }
 
     /**
-     * 获取child view高度的半值
+     * 获取child view高度和宽度的半值
      */
-    private fun getChildViewHalfHeight() {
+    private fun getChildViewHalfSize(childView: View) {
         if (NO_SIZE == mChildViewHalfHeight && childCount > EMPTY) {
-            // 获取第一个child view
-            val firstChildView = getChildAt(0)
-            if (firstChildView != null) {
+            // 获取child view的宽高的半值
+            if (childView != null) {
                 // 获取高度的半值
-                mChildViewHalfWidth = firstChildView.measuredWidth.shr(1)
-                mChildViewHalfHeight = firstChildView.measuredHeight.shr(1)
+                mChildViewHalfWidth = childView.measuredWidth.shr(1)
+                mChildViewHalfHeight = childView.measuredHeight.shr(1)
                 mChildViewQuarterHeight = mChildViewHalfHeight.shr(1)
             }
         }
@@ -226,13 +288,23 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
                 mDownX = ev.x
                 mDownY = ev.y
                 mDownPosition = getTouchChildViewPosition(mDownX, mDownY)
+                // 设置为默认的垂直滑动
+                isVerticalSlide = true
+                // 通知使用方按下位置索引改变
                 mSlideSelectedChangedListener?.onDownPositionChanged(mDownPosition)
             }
             MotionEvent.ACTION_MOVE -> {
                 mCurrentX = ev.x
                 mCurrentY = ev.y
-                if (Math.abs(mCurrentX - mDownX) > mSlideDistanceThresholdHorizontal
-                    || Math.abs(mCurrentY -mDownY) > mSlideDistanceThresholdVertical) {
+                // 对于滑动如果水平间距小于child view的宽度则认为是滚动，大于child view宽度的则才是滑动选择
+                if (Math.abs(mCurrentX - mDownX) > mChildViewHalfWidth.shl(1)) {
+                    // 记录不是垂直滑动即不是滚动列表
+                    isVerticalSlide = false
+                }
+                // 滚动列表或滑动的距离小于规定的阈值，则手势事件不拦截，进行分发
+                if (isVerticalSlide || getDistance() <= mSlideDistanceThreshold) {
+                    return super.dispatchTouchEvent(ev)
+                } else { // 满足滑动多选条件，则拦截手势然后处理
                     // 当前触摸点点中的是列表中展示的最后一排child view的下半部分
                     if (mHeight + mLocationY - mChildViewHalfHeight - mChildViewQuarterHeight < mCurrentY) { // 底部
                         doScrollAndCallback(TouchPositionTyper.TOUCH_POSITION_BOTTOM)
@@ -242,20 +314,27 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
                         doScrollAndCallback(TouchPositionTyper.TOUCH_POSITION_MIDDLE)
                     }
                     return true
-                } else {
-                    return super.dispatchTouchEvent(ev)
                 }
             }
             // 抬起
             MotionEvent.ACTION_UP -> {
+                // 恢复状态
                 mDownX = NO_POINT
                 mDownY = NO_POINT
                 mCurrentX = NO_POINT
                 mCurrentY = NO_POINT
                 mDownPosition = DEFAULT_POSITION
+                isVerticalSlide = true
             }
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    /**
+     * 获取当前触摸点与按下点的距离
+     */
+    private fun getDistance(): Double {
+        return Math.sqrt(Math.pow((mCurrentX- mDownX).toDouble(), 2.toDouble()) + Math.pow((mCurrentY - mDownY).toDouble(), 2.toDouble()))
     }
 
     /**
@@ -306,7 +385,7 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
                 if (isAutoScrollNextRow) {
                     // 校验是否范围越界
                     if (!isOutRange(position))
-                        // 超过最小值则使用最小值，否则使用计算值
+                    // 超过最小值则使用最小值，否则使用计算值
                         scrollPosition = if (position - mColumnCount < 0) 0 else position - mColumnCount
                 } else {
                     // 网上滚动
@@ -317,8 +396,8 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
             TouchPositionTyper.TOUCH_POSITION_BOTTOM -> {
                 if (isAutoScrollNextRow) {
                     if (!isOutRange(position))
-                    scrollPosition = if (position + mColumnCount >= adapter!!.itemCount) adapter!!.itemCount - 1
-                    else position + mColumnCount
+                        scrollPosition = if (position + mColumnCount >= adapter!!.itemCount) adapter!!.itemCount - 1
+                        else position + mColumnCount
                 } else {
                     scrollPosition = ScrollDirectionTyper.SCROLL_DIRECTION_BOTTOM.getScrollDirection()
                 }
@@ -371,7 +450,7 @@ class SlideSelectedRecyclerView constructor(context: Context, attrs: AttributeSe
         public fun onSlideSelectedChanged(currentPosition: Int, columnCount: Int)
 
         /**
-         * 按下点改变监听回调
+         * 按下位置索引改变监听回调
          * @param downPosition 按下位置索引
          */
         public fun onDownPositionChanged(downPosition: Int)
